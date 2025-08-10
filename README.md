@@ -34,6 +34,7 @@ The jag-snap-fw.sh script runs as a systemd timer service to maintain iptables r
 
 ### copy script
 ```shell
+sudo cp jag-snap-fw.sh /usr/local/bin/
 sudo chown root:root /usr/local/bin/jag-snap-fw.sh
 sudo chmod 755 /usr/local/bin/jag-snap-fw.sh
 ```
@@ -46,7 +47,7 @@ sudo useradd -m -s /bin/false jag-snap-fw
 ```
 
 ### Configure sudoers for Least Privilege
-Grant the jagpool-user permission to run only the necessary iptables and ipset commands with sudo without a password, using a sudoers file.
+Grant the jag-snap-fw user permission to run only the necessary iptables and ipset commands with sudo without a password, using a sudoers file.
 Create a sudoers configuration file:
 ```shell
 sudo visudo -f /etc/sudoers.d/jag-snap-fw
@@ -54,7 +55,7 @@ sudo visudo -f /etc/sudoers.d/jag-snap-fw
 Add the following content:
 
 ```shell
-jagpool-user ALL=(root) NOPASSWD: /sbin/iptables, /sbin/ipset
+jag-snap-fw ALL=(root) NOPASSWD: /sbin/iptables, /sbin/ipset
 ```
 
 Set permissions for the sudoers file:
@@ -74,7 +75,7 @@ This should work without a password. Non-allowed commands (e.g., sudo ls) should
 ## Create a Systemd Service and Timer
 
 Use a systemd service and timer to run the script periodically as jag-snap-fw. This is more robust than cron for systemd-based systems.
-Create the Systemd ServiceCreate `/etc/systemd/system/jag-sanp-fw.service`:
+Create the Systemd ServiceCreate `/etc/systemd/system/jag-snap-fw.service`:
 
 ```shell
 [Unit]
