@@ -1,5 +1,5 @@
 # Jag-Snap
-A lightweight reverse proxy for Solana validators, enabling restricted access to snapshots and specific RPC methods.
+A compact reverse proxy designed for Solana validators, allowing controlled access to snapshots and selected RPC methods.
 
 ## Build
 ```shell
