@@ -32,6 +32,10 @@ To serve snapshots from a known validator, the RPC address and port must be adve
 ## Firewalling setup
 The jag-snap-fw.sh script runs as a systemd timer service to maintain iptables rules that grant Jagpool validators from a specific region access to the snapshots service. The allowed IP list is fetched from the Jagpool API and stored as an ipset, which is then referenced in the iptables rules. The ipset is refreshed and updated every minute
 
+### requirements
+* iptables
+* ipset
+
 ### copy script
 ```shell
 sudo cp jag-snap-fw.sh /usr/local/bin/
