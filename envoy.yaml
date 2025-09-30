@@ -1,0 +1,86 @@
+static_resources:
+  listeners:
+    - name: listener_0
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 18899
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                server_name: envoy-proxy
+                codec_type: AUTO
+                http_filters:
+                  # Lua filter for RPC method filtering only
+                  - name: envoy.filters.http.lua
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+                      inline_code: |
+                        local cjson = require "cjson.safe"
+
+                        function envoy_on_request(request_handle)
+                          local path = request_handle:headers():get(":path") or ""
+                          if path ~= "/snapshot" then
+                            local body = request_handle:body():getBytes(0, request_handle:body():length() or 0)
+                            if body then
+                              local json = cjson.decode(body)
+                              local allowed_methods = { getSlot=true, getHighestSnapshotSlot=true }
+                              if not (json and json.method and allowed_methods[json.method]) then
+                                request_handle:respond(
+                                  {[":status"]="403"},
+                                  cjson.encode({
+                                    jsonrpc="2.0",
+                                    error={code=-32601,message="Method not allowed"},
+                                    id=json and json.id or 1
+                                  })
+                                )
+                                return
+                              end
+                            end
+                          end
+                        end
+                  - name: envoy.filters.http.router
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: solana_service
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: "/snapshot"
+                          route:
+                            cluster: solana_validator
+                            request_headers_to_add:
+                              - header:
+                                  key: "Range"
+                                  value: "%REQ(X-Range)%"   # pass the client's Range header
+
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: solana_validator
+
+  clusters:
+    - name: solana_validator
+      connect_timeout: 0.25s
+      type: STATIC
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: solana_validator
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: 127.0.0.1
+                      port_value: 8899
+
+admin:
+  access_log_path: "/tmp/admin_access.log"
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901

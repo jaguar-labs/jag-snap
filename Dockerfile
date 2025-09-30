@@ -1,10 +1,8 @@
-FROM openresty/openresty:alpine
+FROM envoyproxy/envoy:v1.26.0
 
-# Copy NGINX configuration
-COPY nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+COPY envoy.yaml /etc/envoy/envoy.yaml
 
-# Expose port for RPC and snapshot access
 EXPOSE 18899
+EXPOSE 9901
 
-# Run OpenResty in foreground
-CMD ["/usr/local/openresty/bin/openresty", "-g", "daemon off;"]
+CMD ["envoy", "-c", "/etc/envoy/envoy.yaml", "--log-level", "debug"]
