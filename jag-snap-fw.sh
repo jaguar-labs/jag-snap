@@ -30,7 +30,7 @@ fi
 
 # ipset configuration
 set_name="jag-snap-allowlist"
-temp_name="${set_name}-tmp"
+temp_name="${set_name}-tmp-$(date +%s)"
 set_options="hash:ip family inet hashsize 1024 maxelem 65536"
 
 # Check if ipset exists and update accordingly
