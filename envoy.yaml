@@ -20,6 +20,8 @@ static_resources:
                 stat_prefix: ingress_http
                 codec_type: AUTO
                 server_name: None
+                use_remote_address: true
+                xff_num_trusted_hops: 0
                 access_log:
                   - name: envoy.access_loggers.file
                     typed_config:
@@ -29,33 +31,7 @@ static_resources:
                   - name: envoy.filters.http.local_ratelimit
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
-                      stat_prefix: local_rate_limit
-                      token_bucket:
-                        max_tokens: 10
-                        tokens_per_fill: 10
-                        fill_interval: 60s
-                      filter_enabled:
-                        runtime_key: local_rate_limit_enabled
-                        default_value:
-                          numerator: 100
-                          denominator: HUNDRED
-                      filter_enforced:
-                        runtime_key: local_rate_limit_enforced
-                        default_value:
-                          numerator: 100
-                          denominator: HUNDRED
-                      response_headers_to_add:
-                        - append: false
-                          header:
-                            key: x-local-rate-limit
-                            value: 'true'
-                      descriptors:
-                        - entries:
-                            - key: remote_address
-                              value: "*"
-                          rate_limit:
-                            unit: MINUTE
-                            requests_per_unit: 10
+                      stat_prefix: http_local_rate_limiter
                   - name: envoy.filters.http.lua
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
@@ -95,11 +71,42 @@ static_resources:
                             prefix: "/snapshot"
                           route:
                             cluster: solana_validator
+                            timeout: 0s
                         - match:
                             prefix: "/"
                           route:
                             cluster: solana_validator
-
+                          typed_per_filter_config:
+                            envoy.filters.http.local_ratelimit:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+                              stat_prefix: http_local_rate_limiter
+                              token_bucket:
+                                max_tokens: 10
+                                tokens_per_fill: 10
+                                fill_interval: 60s
+                              filter_enabled:
+                                runtime_key: local_rate_limit_enabled
+                                default_value:
+                                  numerator: 100
+                                  denominator: HUNDRED
+                              filter_enforced:
+                                runtime_key: local_rate_limit_enforced
+                                default_value:
+                                  numerator: 100
+                                  denominator: HUNDRED
+                              response_headers_to_add:
+                                - append: false
+                                  header:
+                                    key: x-local-rate-limit
+                                    value: 'true'
+                              descriptors:
+                                - entries:
+                                    - key: remote_address
+                                      value: "*"
+                                  token_bucket:
+                                    max_tokens: 10
+                                    tokens_per_fill: 10
+                                    fill_interval: 60s
   clusters:
     - name: solana_validator
       connect_timeout: 5s
