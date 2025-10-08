@@ -30,11 +30,12 @@ fi
 
 # ipset configuration
 set_name="jag-snap-allowlist"
-temp_name="${set_name}-tmp-$(date +%s)"
+temp_name="${set_name}-tmp"
 set_options="hash:ip family inet hashsize 1024 maxelem 65536"
 
 # Check if ipset exists and update accordingly
 if sudo ipset list "$set_name" &> /dev/null; then
+  sudo ipset destroy "$temp_name" 2>/dev/null || true
   sudo ipset create "$temp_name" $set_options
   for ip in $(echo "$ips_json" | jq -r '.[]'); do
     sudo ipset add "$temp_name" "$ip"
