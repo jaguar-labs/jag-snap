@@ -1,5 +1,5 @@
 admin:
-  access_log_path: /dev/null
+  access_log_path: /dev/stdout
   address:
     socket_address:
       address: 127.0.0.1
@@ -26,32 +26,6 @@ static_resources:
                       "@type": type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
                       path: /dev/stdout
                 http_filters:
-                  - name: envoy.filters.http.lua
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
-                      inline_code: |
-                        function envoy_on_request(request_handle)
-                          local body = request_handle:body()
-                          local cjson = require("cjson")
-                          if body then
-                            local json = cjson.decode(body:getBytes(0, body:length()))
-                            local allowed_methods = {
-                              ["getSlot"] = true,
-                              ["getHighestSnapshotSlot"] = true
-                            }
-                            if not allowed_methods[json.method] then
-                              request_handle:headers():replace(":status", "403")
-                              request_handle:respond(
-                                {[":status"] = "403"},
-                                cjson.encode({
-                                  jsonrpc = "2.0",
-                                  error = { code = -32601, message = "Method not allowed" },
-                                  id = json.id or 1
-                                })
-                              )
-                            end
-                          end
-                        end
                   - name: envoy.filters.http.local_ratelimit
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
@@ -78,10 +52,36 @@ static_resources:
                       descriptors:
                         - entries:
                             - key: remote_address
-                              value: "{REMOTE_ADDR}"
+                              value: "*"
                           rate_limit:
                             unit: MINUTE
                             requests_per_unit: 10
+                  - name: envoy.filters.http.lua
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+                      inline_code: |
+                        function envoy_on_request(request_handle)
+                          local body = request_handle:body()
+                          local cjson = require("cjson")
+                          if body then
+                            local json = cjson.decode(body:getBytes(0, body:length()))
+                            local allowed_methods = {
+                              ["getSlot"] = true,
+                              ["getHighestSnapshotSlot"] = true
+                            }
+                            if not allowed_methods[json.method] then
+                              request_handle:headers():replace(":status", "403")
+                              request_handle:respond(
+                                {[":status"] = "403"},
+                                cjson.encode({
+                                  jsonrpc = "2.0",
+                                  error = { code = -32601, message = "Method not allowed" },
+                                  id = json.id or 1
+                                })
+                              )
+                            end
+                          end
+                        end
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
