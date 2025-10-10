@@ -1,14 +1,9 @@
-FROM openresty/openresty:alpine
+FROM openresty/openresty:alpine-fat
 
 # Copy NGINX configuration
 COPY nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
 
-RUN apk add --no-cache curl unzip
-RUN mkdir -p /usr/local/openresty/lualib/prometheus
-RUN curl -L https://github.com/knyar/nginx-lua-prometheus/archive/refs/heads/master.zip -o /tmp/prometheus.zip \
-    && unzip /tmp/prometheus.zip -d /tmp \
-    && cp -r /tmp/nginx-lua-prometheus-master/* /usr/local/openresty/lualib/prometheus \
-    && rm -rf /tmp/*
+RUN /usr/local/openresty/luajit/bin/luarocks install nginx-lua-prometheus
 
 # Expose port for RPC and snapshot access
 EXPOSE 18899 9145
