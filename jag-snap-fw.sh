@@ -36,16 +36,16 @@ set_options="hash:ip family inet hashsize 1024 maxelem 65536"
 # Check if ipset exists and update accordingly
 if sudo ipset list "$set_name" &> /dev/null; then
   sudo ipset destroy "$temp_name" 2>/dev/null || true
-  sudo ipset create "$temp_name" $set_options
+  sudo ipset create "$temp_name" $set_options -exist
   for ip in $(echo "$ips_json" | jq -r '.[]'); do
-    sudo ipset add "$temp_name" "$ip"
+    sudo ipset add "$temp_name" "$ip" -exist
   done
   sudo ipset swap "$temp_name" "$set_name"
   sudo ipset destroy "$temp_name"
 else
-  sudo ipset create "$set_name" $set_options
+  sudo ipset create "$set_name" $set_options -exist
   for ip in $(echo "$ips_json" | jq -r '.[]'); do
-    sudo ipset add "$set_name" "$ip"
+    sudo ipset add "$set_name" "$ip" -exist
   done
 fi
 
@@ -70,20 +70,36 @@ else
   fi
 fi
 
-# Ensure global rules for established connections and loopback are in place at top positions
-rules=$(sudo iptables -S INPUT | nl -v 1 | grep -E -- "-A INPUT")
+# Ensure baseline INPUT rules exist (idempotent)
 established_rule="-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT"
 loopback_rule="-i lo -j ACCEPT"
 jump_rule="-p tcp --dport $port -j $chain_name"
 
-established_pos=$(echo "$rules" | grep -- "$established_rule" | awk '{print $1}' | head -n 1)
-loopback_pos=$(echo "$rules" | grep -- "$loopback_rule" | awk '{print $1}' | head -n 1)
+# Ensure ESTABLISHED rule present at/near top
+if ! sudo iptables -C INPUT $established_rule 2>/dev/null; then
+  sudo iptables -I INPUT 1 $established_rule
+fi
 
-jump_pos=$((established_pos > loopback_pos ? established_pos : loopback_pos))
+# Ensure loopback rule present just after ESTABLISHED if possible
+if ! sudo iptables -C INPUT $loopback_rule 2>/dev/null; then
+  # Insert at 2 (after whatever is at 1—ideally ESTABLISHED from above)
+  sudo iptables -I INPUT 2 $loopback_rule || sudo iptables -I INPUT 1 $loopback_rule
+fi
 
-# Check if jump rule exists; add only if it doesn't
+# Figure out the (1-based) line numbers for those two rules
+# (Empty -> treat as 0 so +1 below becomes 1)
+established_pos=$(sudo iptables -L INPUT --line-numbers -n | awk '/RELATED,ESTABLISHED/ {print $1; exit}')
+loopback_pos=$(sudo iptables -L INPUT --line-numbers -n | awk '/\blo\b/ && /ACCEPT/ {print $1; exit}')
+: "${established_pos:=0}"
+: "${loopback_pos:=0}"
+
+# Choose the larger position and add 1 so we place *after* both
+jump_pos=$(( (established_pos > loopback_pos ? established_pos : loopback_pos) + 1 ))
+if [ "$jump_pos" -lt 1 ]; then jump_pos=1; fi
+
+# Add the jump rule only if missing, at the computed position
 if ! sudo iptables -C INPUT $jump_rule 2>/dev/null; then
-  sudo iptables -I INPUT $jump_pos $jump_rule
+  sudo iptables -I INPUT "$jump_pos" $jump_rule
 fi
 
 echo "ipset updated, custom chain $chain_name configured, and iptables rules ensured for port $port."
