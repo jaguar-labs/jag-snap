@@ -35,7 +35,6 @@ The proxy serves its own version at `/jag-snap/version` (statically, nothing rea
 curl http://<public ip>:18899/jag-snap/version
 # {"name":"jag-snap","version":"1.1.0"}
 ```
-Validators running a version older than `1.1.0` (or returning a non-JSON error on this path) have not applied the RPC method filter fix.
 
 ### Firewalling setup
 Open rpc proxy port tcp/18899
