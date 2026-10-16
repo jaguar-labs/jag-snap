@@ -29,6 +29,14 @@ To serve snapshots from a known validator, the RPC address and port must be adve
 ...
 ```
 
+## Checking the proxy version
+The proxy serves its own version at `/jag-snap/version` (statically, nothing reaches the validator). Use it to check which jag-snap version a validator is running:
+```shell
+curl http://<public ip>:18899/jag-snap/version
+# {"name":"jag-snap","version":"1.1.0"}
+```
+Validators running a version older than `1.1.0` (or returning a non-JSON error on this path) have not applied the RPC method filter fix.
+
 ### Firewalling setup
 Open rpc proxy port tcp/18899
 
