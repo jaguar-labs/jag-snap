@@ -1,4 +1,4 @@
-FROM openresty/openresty:alpine
+FROM openresty/openresty:1.31.9.1-alpine
 
 # Copy NGINX configuration
 COPY nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
